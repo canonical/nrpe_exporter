@@ -1,4 +1,4 @@
-# NRPE exporter
+# NRPE exporter [![Build Status](https://travis-ci.org/RobustPerception/nrpe_exporter.svg?branch=master)](https://travis-ci.org/RobustPerception/nrpe_exporter)
 
 The NRPE exporter allows for the exposing of nrpe server command's metrics, namely duration, status, and success.
 
