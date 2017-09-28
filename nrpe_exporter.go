@@ -18,13 +18,13 @@ import (
 )
 
 var (
-	listenAddress     = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9275").String()
-	nrpeServerAddress = kingpin.Flag("nrpe-server-address", "The address of the NRPE server.").Required().String()
+	listenAddress = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9275").String()
 )
 
 // Collector type containing issued command and a logger
 type Collector struct {
 	command string
+	target  string
 	logger  log.Logger
 }
 
@@ -61,7 +61,7 @@ func collectCommandMetrics(cmd string, conn net.Conn, logger log.Logger) (Comman
 // Collect dials nrpe-server and issues given command, recording metrics based on the result.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	// Connect to NRPE server
-	conn, err := net.Dial("tcp", *nrpeServerAddress)
+	conn, err := net.Dial("tcp", c.target)
 	if err != nil {
 		level.Error(c.logger).Log("msg", "Error dialing NRPE server", "err", err)
 		return
@@ -92,22 +92,28 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 }
 
 // NewCollector returns new collector with logger and given command
-func NewCollector(command string, logger log.Logger) *Collector {
+func NewCollector(command, target string, logger log.Logger) *Collector {
 	return &Collector{
 		command: command,
+		target:  target,
 		logger:  logger,
 	}
 }
 
 func handler(w http.ResponseWriter, r *http.Request, logger log.Logger) {
 	params := r.URL.Query()
+	target := params.Get("target")
+	if target == "" {
+		http.Error(w, "Target parameter is missing", 400)
+		return
+	}
 	cmd := params.Get("command")
 	if cmd == "" {
 		http.Error(w, "Command parameter is missing", 400)
 		return
 	}
 	registry := prometheus.NewRegistry()
-	collector := NewCollector(cmd, logger)
+	collector := NewCollector(cmd, target, logger)
 	registry.MustRegister(collector)
 	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 	h.ServeHTTP(w, r)
@@ -130,10 +136,7 @@ func main() {
             <body>
             <h1>NRPE Exporter</h1>
 						<p><a href="/metrics">Metrics</a></p>
-						<form action="/export">
-						<label>NRPE Command:</label> <input type="text" name="command" placeholder="check_load" value="check_load">
-						<input type="submit" value="Submit">
-						</form>
+						<p><a href="/export?command=check_load&target=127.0.0.1:5666">check_load against localhost:5666</a></p>
             </body>
             </html>`))
 	})
