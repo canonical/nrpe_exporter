@@ -128,6 +128,7 @@ func main() {
 	logger := promlog.New(allowedLevel)
 	level.Info(logger).Log("msg", "Starting nrpe_exporter", "version", version.Info())
 	level.Info(logger).Log("msg", "Build context", "build_context", version.BuildContext())
+	level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
             <head>
