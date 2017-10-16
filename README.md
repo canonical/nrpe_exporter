@@ -1,6 +1,6 @@
 # NRPE exporter [![Build Status](https://travis-ci.org/RobustPerception/nrpe_exporter.svg?branch=master)](https://travis-ci.org/RobustPerception/nrpe_exporter)
 
-The NRPE exporter allows for the exposing of nrpe server command's metrics, namely duration, status, and success.
+The NRPE exporter exposes metrics on commands sent to a running NRPE daemon.
 
 ## Building and running
 
@@ -27,9 +27,6 @@ Run ./nrpe_exporter -h to view all available flags.
 Note: The NRPE server you're connecting to must be configured with SSL disabled as this exporter does not support SSL.
 
 ## Prometheus Configuration
-
-The NRPE exporter needs to be passed a NRPE server command as a parameter, this can be
-done with relabelling.
 
 Example config:
 ```yml
