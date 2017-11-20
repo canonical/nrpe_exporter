@@ -1,0 +1,31 @@
+version: 2
+jobs:
+ build:
+   docker:
+     - image: circleci/golang:1.9
+   working_directory: /go/src/github.com/robustperception/nrpe_exporter
+   steps:
+       - checkout
+       - run:
+           name: Setup environment
+           command: |
+               sudo apt-get update 
+               sudo apt-get install nagios-nrpe-server
+               cd /etc/nagios
+               sudo bash -c 'echo "allowed_hosts=127.0.0.1" >> nrpe_local.cfg'
+               cd /etc/default
+               sudo bash -c ' cat << EOF > nagios-nrpe-server
+               DAEMON_OPTS="--no-ssl"
+               EOF'
+               cd /etc/init.d
+               sudo ./nagios-nrpe-server start
+               running=sudo ./nagios-nrpe-server status
+       - run:
+           name: Build and run nrpe_exporter
+           command: |
+               go get 
+               go build
+               sudo ./nrpe_exporter --log.level=debug &
+               cd /etc/init.d
+               sudo ./nagios-nrpe-server restart
+               curl "http://localhost:9275/export?command=check_load&target=127.0.0.1:5666"
