@@ -1,4 +1,4 @@
-# NRPE exporter [![Build Status](https://travis-ci.org/RobustPerception/nrpe_exporter.svg?branch=master)](https://travis-ci.org/RobustPerception/nrpe_exporter)
+# NRPE exporter [![Build Status](https://travis-ci.org/RobustPerception/nrpe_exporter.svg?branch=master)](https://travis-ci.org/RobustPerception/nrpe_exporter) [![CircleCI](https://circleci.com/gh/RobustPerception/nrpe_exporter.svg?style=shield)](https://circleci.com/gh/RobustPerception/nrpe_exporter)
 
 The NRPE exporter exposes metrics on commands sent to a running NRPE daemon.
 
