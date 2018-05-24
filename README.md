@@ -14,7 +14,8 @@ will return metrics for the command 'check_load' against a locally running NRPE 
 
 ### Building with Docker
 
-TODO
+    docker build -t nrpe_exporter .
+    docker run -d -p 9275:9275 --name nrpe_exporter
 
 ## Configuration
 
