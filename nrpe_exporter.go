@@ -120,12 +120,12 @@ func handler(w http.ResponseWriter, r *http.Request, logger log.Logger) {
 }
 
 func main() {
-	allowedLevel := promlog.AllowedLevel{}
-	flag.AddFlags(kingpin.CommandLine, &allowedLevel)
+	logConfig := promlog.Config{}
+	flag.AddFlags(kingpin.CommandLine, &logConfig)
 	kingpin.Version(version.Print("nrpe_exporter"))
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
-	logger := promlog.New(allowedLevel)
+	logger := promlog.New(&logConfig)
 	level.Info(logger).Log("msg", "Starting nrpe_exporter", "version", version.Info())
 	level.Info(logger).Log("msg", "Build context", "build_context", version.BuildContext())
 	level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
