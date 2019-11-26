@@ -51,3 +51,18 @@ scrape_configs:
         replacement: 127.0.0.1:9275 # Nrpe exporter.
 
 ```
+
+## SSL support
+
+Add query parameter `ssl=1` to use SSL.
+
+SSL support for NRPE requires the ADH ciphersuite which is not built by
+default in modern version of openssl. If the following command returns
+nothing then you will not be able to use it:
+
+```
+openssl ciphers -s -v ALL | grep ADH   # remove -s on older versions of openssl
+```
+
+The solution is to build the `nrpe_exporter` binary on an older server -
+Ubuntu 16.04 works - so that it links against `libssl.so.1.0.0`

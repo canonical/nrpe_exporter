@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
 	"github.com/prometheus/common/version"
+	"github.com/spacemonkeygo/openssl"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -25,6 +26,7 @@ var (
 type Collector struct {
 	command string
 	target  string
+	ssl     bool
 	logger  log.Logger
 }
 
@@ -60,12 +62,29 @@ func collectCommandMetrics(cmd string, conn net.Conn, logger log.Logger) (Comman
 
 // Collect dials nrpe-server and issues given command, recording metrics based on the result.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
+	var ctx *openssl.Ctx
+	var conn net.Conn
+	var err error
 	// Connect to NRPE server
-	conn, err := net.Dial("tcp", c.target)
+	if c.ssl {
+		ctx, err = openssl.NewCtx()
+		if err != nil {
+			goto return_err
+		}
+		err = ctx.SetCipherList("ALL:!MD5:@STRENGTH")
+		if err != nil {
+			goto return_err
+		}
+		conn, err = openssl.Dial("tcp", c.target, ctx, openssl.InsecureSkipHostVerification)
+	} else {
+		conn, err = net.Dial("tcp", c.target)
+	}
+return_err:
 	if err != nil {
 		level.Error(c.logger).Log("msg", "Error dialing NRPE server", "err", err)
 		return
 	}
+	// defer conn.Close() ?
 
 	cmdResult, err := collectCommandMetrics(c.command, conn, c.logger)
 	if err != nil {
@@ -92,10 +111,11 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 }
 
 // NewCollector returns new collector with logger and given command
-func NewCollector(command, target string, logger log.Logger) *Collector {
+func NewCollector(command, target string, ssl bool, logger log.Logger) *Collector {
 	return &Collector{
 		command: command,
 		target:  target,
+		ssl:     ssl,
 		logger:  logger,
 	}
 }
@@ -112,8 +132,10 @@ func handler(w http.ResponseWriter, r *http.Request, logger log.Logger) {
 		http.Error(w, "Command parameter is missing", 400)
 		return
 	}
+	ssl := params.Get("ssl")
+	useSSL := (ssl == "1" || ssl == "true" || ssl == "yes")
 	registry := prometheus.NewRegistry()
-	collector := NewCollector(cmd, target, logger)
+	collector := NewCollector(cmd, target, useSSL, logger)
 	registry.MustRegister(collector)
 	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 	h.ServeHTTP(w, r)
