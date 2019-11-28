@@ -6,6 +6,7 @@ The NRPE exporter exposes metrics on commands sent to a running NRPE daemon.
 
 ### Local Build
 
+    go get
     go build nrpe_exporter.go
     ./nrpe_exporter
 
