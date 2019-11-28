@@ -23,9 +23,7 @@ The nrpe_exporter requires little to no configuration.
 
 The few options available such as logging level and the port to run on are configured via command line flags.
 
-Run ./nrpe_exporter -h to view all available flags.
-
-Note: The NRPE server you're connecting to must be configured with SSL disabled as this exporter does not support SSL.
+Run `./nrpe_exporter -h` to view all available flags.
 
 ## Prometheus Configuration
 
@@ -51,3 +49,31 @@ scrape_configs:
         replacement: 127.0.0.1:9275 # Nrpe exporter.
 
 ```
+
+## SSL support
+
+Add URL query parameter `ssl=true` to enable SSL for the NRPE connection, e.g.
+
+```
+    params:
+      command: [check_load]
+      ssl: [true]
+```
+
+NRPE requires the ADH ciphersuite which is not built by default in modern
+version of openssl. If the following command returns nothing then you will
+not be able to use it:
+
+```
+openssl ciphers -s -v ALL | grep ADH   # remove -s on older versions of openssl
+```
+
+The solution is to build a statically-linked `nrpe_exporter` binary on an
+older server - Ubuntu 16.04 works.
+
+```
+go build -a -ldflags '-extldflags "-static -ldl"'
+```
+
+[A future version of golang](https://github.com/golang/go/issues/26492) may
+provide a simpler way of doing this.
