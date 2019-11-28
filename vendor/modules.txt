@@ -39,7 +39,13 @@ github.com/prometheus/common/version
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
+# github.com/spacemonkeygo/openssl v0.0.0-20181017203307-c2dcc5cca94a
+github.com/spacemonkeygo/openssl
+github.com/spacemonkeygo/openssl/utils
+# github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572
+github.com/spacemonkeygo/spacelog
 # golang.org/x/sys v0.0.0-20191010194322-b09406accb47
+golang.org/x/sys/unix
 golang.org/x/sys/windows
 # gopkg.in/alecthomas/kingpin.v2 v2.2.6
 gopkg.in/alecthomas/kingpin.v2
