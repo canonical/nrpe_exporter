@@ -12,7 +12,7 @@ The NRPE exporter exposes metrics on commands sent to a running NRPE daemon.
 Visiting [http://localhost:9275/export?command=check_load&target=127.0.0.1:5666](http://localhost:9275/export?command=check_load&target=127.0.0.1:5666)
 will return metrics for the command 'check_load' against a locally running NRPE server.
 
-### Building with Docker
+### Building with Docker (with SSL support)
 
     docker build -t nrpe_exporter .
     docker run -d -p 9275:9275 --name nrpe_exporter
