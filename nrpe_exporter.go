@@ -25,6 +25,7 @@ var (
 // Collector type containing issued command and a logger
 type Collector struct {
 	command string
+	args    string
 	target  string
 	ssl     bool
 	logger  log.Logger
@@ -42,9 +43,9 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- prometheus.NewDesc("dummy", "dummy", nil, nil)
 }
 
-func collectCommandMetrics(cmd string, conn net.Conn, logger log.Logger) (CommandResult, error) {
+func collectCommandMetrics(cmd string, args string, conn net.Conn, logger log.Logger) (CommandResult, error) {
 	// Parse and issue given command
-	command := nrpe.NewCommand(cmd)
+	command := nrpe.NewCommand(cmd, args)
 	startTime := time.Now()
 	result, err := nrpe.Run(conn, command, false, 0)
 	if err != nil {
@@ -87,7 +88,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	}
 	defer conn.Close()
 
-	cmdResult, err := collectCommandMetrics(c.command, conn, c.logger)
+	cmdResult, err := collectCommandMetrics(c.command, c.args, conn, c.logger)
 	if err != nil {
 		level.Error(c.logger).Log("msg", "Error running command", "command", c.command, "err", err)
 		return
@@ -112,9 +113,10 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 }
 
 // NewCollector returns new collector with logger and given command
-func NewCollector(command, target string, ssl bool, logger log.Logger) *Collector {
+func NewCollector(command, args, target string, ssl bool, logger log.Logger) *Collector {
 	return &Collector{
 		command: command,
+		args:    args,
 		target:  target,
 		ssl:     ssl,
 		logger:  logger,
@@ -133,10 +135,11 @@ func handler(w http.ResponseWriter, r *http.Request, logger log.Logger) {
 		http.Error(w, "Command parameter is missing", 400)
 		return
 	}
+	args := params.Get("args")
 	sslParam := params.Get("ssl")
 	ssl := sslParam == "true"
 	registry := prometheus.NewRegistry()
-	collector := NewCollector(cmd, target, ssl, logger)
+	collector := NewCollector(cmd, args, target, ssl, logger)
 	registry.MustRegister(collector)
 	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 	h.ServeHTTP(w, r)
