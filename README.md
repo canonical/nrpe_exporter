@@ -49,6 +49,33 @@ scrape_configs:
         replacement: 127.0.0.1:9275 # Nrpe exporter.
 
 ```
+Example config with arguments passed to command:
+```yml
+global:
+  scrape_interval: 10s
+scrape_configs:
+  - job_name: nrpe
+    metrics_path: /export
+    params:
+      command: [check_proc] # Run the check_proc command with arguments.
+      args: [1:1!1:1!/opt/prometheus/alertmanager]
+    static_configs:
+      - targets: # Targets to run the specified command against.
+        - '127.0.0.1:5666'
+        - 'example.com:5666'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [command]
+        target_label: __param_command
+      - source_labels: [args]
+        target_label: __param_args
+      - source_labels: [__param_target]
+        target_label: instance
+    - target_label: __address__
+      replacement: 127.0.0.1:9275 # Nrpe exporter.
+```
+
 
 ## SSL support
 
