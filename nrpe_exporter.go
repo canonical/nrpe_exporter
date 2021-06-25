@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"time"
+	"strings"
 
 	"github.com/aperum/nrpe"
 	"github.com/go-kit/kit/log"
@@ -25,6 +26,7 @@ var (
 // Collector type containing issued command and a logger
 type Collector struct {
 	command string
+	args    []string
 	target  string
 	ssl     bool
 	logger  log.Logger
@@ -42,9 +44,9 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- prometheus.NewDesc("dummy", "dummy", nil, nil)
 }
 
-func collectCommandMetrics(cmd string, conn net.Conn, logger log.Logger) (CommandResult, error) {
+func collectCommandMetrics(cmd string, args []string, conn net.Conn, logger log.Logger) (CommandResult, error) {
 	// Parse and issue given command
-	command := nrpe.NewCommand(cmd)
+	command := nrpe.NewCommand(cmd,args...)
 	startTime := time.Now()
 	result, err := nrpe.Run(conn, command, false, 0)
 	if err != nil {
@@ -112,9 +114,10 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 }
 
 // NewCollector returns new collector with logger and given command
-func NewCollector(command, target string, ssl bool, logger log.Logger) *Collector {
+func NewCollector(command, target string, args []string, ssl bool, logger log.Logger) *Collector {
 	return &Collector{
 		command: command,
+		args:    args,
 		target:  target,
 		ssl:     ssl,
 		logger:  logger,
@@ -133,10 +136,15 @@ func handler(w http.ResponseWriter, r *http.Request, logger log.Logger) {
 		http.Error(w, "Command parameter is missing", 400)
 		return
 	}
+	args := []string{}
+	argsquery := r.URL.Query().Get("args")
+	if argsquery != "" {
+		args = strings.Split(argsquery, ",")
+	}
 	sslParam := params.Get("ssl")
 	ssl := sslParam == "true"
 	registry := prometheus.NewRegistry()
-	collector := NewCollector(cmd, target, ssl, logger)
+	collector := NewCollector(cmd, target, args, ssl, logger)
 	registry.MustRegister(collector)
 	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 	h.ServeHTTP(w, r)
