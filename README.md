@@ -36,6 +36,7 @@ scrape_configs:
     metrics_path: /export
     params:
       command: [check_load] # Run the check_load command.
+      ssl: [true] # remove if SSL not in use.
     static_configs:
       - targets: # Targets to run the specified command against.
         - '127.0.0.1:5666'
@@ -47,6 +48,15 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: 127.0.0.1:9275 # Nrpe exporter.
+
+```
+
+Result Codes in command_status:
+```
+    StatusOK       = 0
+    StatusWarning  = 1
+    StatusCritical = 2
+    StatusUnknown  = 3
 
 ```
 

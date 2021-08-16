@@ -109,6 +109,11 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		prometheus.GaugeValue,
 		float64(cmdResult.result.StatusCode),
 	)
+	ch <- prometheus.MustNewConstMetric(
+		prometheus.NewDesc("command_info", "Indicates the info line of the command", nil, nil),
+		prometheus.GaugeValue,
+		float64(cmdResult.result.StatusLine),
+	)
 }
 
 // NewCollector returns new collector with logger and given command
