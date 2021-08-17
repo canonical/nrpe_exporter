@@ -14,7 +14,7 @@ will return metrics for the command 'check_load' against a locally running NRPE 
 
 ### Building with Docker
 
-    docker build -t nrpe_exporter .
+    docker build -t nrpe_exporter --file ./Dockerfile-ssl .
     docker run -d -p 9275:9275 --name nrpe_exporter
 
 ## Configuration
@@ -36,11 +36,6 @@ scrape_configs:
     metrics_path: /export
     params:
       command: [check_load] # Run the check_load command.
-      ssl: [true] # remove if SSL not in use.
-    static_configs:
-      - targets: # Targets to run the specified command against.
-        - '127.0.0.1:5666'
-        - 'example.com:5666'
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
@@ -48,6 +43,31 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: 127.0.0.1:9275 # Nrpe exporter.
+    static_configs:
+      - targets: # Targets to run the specified command against.
+        - '127.0.0.1:5666'
+        - 'example.com:5666'
+
+  - job_name: nrpe_check_apt
+    honor_timestamps: true
+    params:
+      command: [check_apt]
+      ssl: [true]
+    scrape_interval: 3h # no need to poll this more frequently
+    scrape_timeout: 60s # this command could take a long time to execute
+    metrics_path: /export
+    scheme: http
+    follow_redirects: true
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: nrpe:9275 # Nrpe exporter.
+    static_configs:
+      - targets:
+        - example.com:5666
 
 ```
 
@@ -59,6 +79,23 @@ Result Codes in command_status:
     StatusUnknown  = 3
 
 ```
+Sample Alert Rule:
+```
+
+groups:
+- name: Apt Status
+  rules:
+  - alert: AptUpdatesNeeded
+    expr: last_over_time(command_status{job="nrpe_check_apt"}[4h]) > 0
+    for: 1m
+    labels:
+      severity: normal
+    annotations:
+      summary: "Packages need update  {{ $labels.instance }}"
+      description: "{{ $labels.instance }} for job {{ $labels.job }} has APT packages that need update."
+
+```
+
 
 ## SSL support
 

@@ -1,0 +1,29 @@
+#
+# Prometheus nrpe_exporter docker file
+# forked and heavily modified from https://github.com/RobustPerception/nrpe_exporter
+# Ed Guy, August 2021
+#
+
+FROM ubuntu:16.04
+#ubuntu:16.04 needed for ciphers.
+
+ENV GOROOT /usr/local/go
+ENV PATH $GOPATH/bin:$GOROOT/bin:$PATH
+WORKDIR /app
+
+RUN apt update \
+    && apt install -y  wget openssl \
+    && apt install -y  git libssl-dev musl-dev  libc-dev gcc pkg-config lxc-dev \
+    && wget https://dl.google.com/go/go1.16.4.linux-amd64.tar.gz \
+    && tar -xvf go1.16.4.linux-amd64.tar.gz \
+    && mv go /usr/local/ \
+    && git clone https://github.com/RobustPerception/nrpe_exporter.git . \
+    && go build nrpe_exporter.go \
+    && apt remove  -y  git libssl-dev musl-dev  libc-dev gcc pkg-config lxc-dev \
+    && apt autoremove
+
+EXPOSE      9275
+
+# remove ( or lower) log.level when convinced is working
+ENTRYPOINT  [ "/app/nrpe_exporter", "--log.level=debug" ]
+#ENTRYPOINT  [ "/app/nrpe_exporter" ]
