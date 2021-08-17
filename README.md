@@ -86,6 +86,8 @@ groups:
 - name: Apt Status
   rules:
   - alert: AptUpdatesNeeded
+      # need to be explicit about looking back in time. Default is very short.
+      # choose a time that is a little longer than the scrape_interval
     expr: last_over_time(command_status{job="nrpe_check_apt"}[4h]) > 0
     for: 1m
     labels:
@@ -116,7 +118,7 @@ openssl ciphers -s -v ALL | grep ADH   # remove -s on older versions of openssl
 ```
 
 The solution is to build a statically-linked `nrpe_exporter` binary on an
-older server - Ubuntu 16.04 works.
+older server - Ubuntu 16.04 works. See Dockerfile-ssl.
 
 ```
 go build -a -ldflags '-extldflags "-static -ldl"'
