@@ -14,7 +14,7 @@ will return metrics for the command 'check_load' against a locally running NRPE 
 
 ### Building with Docker
 
-    docker build -t nrpe_exporter --file ./Dockerfile-ssl .
+    docker build -t nrpe_exporter .
     docker run -d -p 9275:9275 --name nrpe_exporter
 
 ## Configuration
@@ -49,22 +49,19 @@ scrape_configs:
         - 'example.com:5666'
 
   - job_name: nrpe_check_apt
-    honor_timestamps: true
     params:
       command: [check_apt]
       ssl: [true]
-    scrape_interval: 3h # no need to poll this more frequently
+    scrape_interval: 2m
     scrape_timeout: 60s # this command could take a long time to execute
     metrics_path: /export
-    scheme: http
-    follow_redirects: true
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
       - source_labels: [__param_target]
         target_label: instance
       - target_label: __address__
-        replacement: nrpe:9275 # Nrpe exporter.
+        replacement: 127.0.0.1:9275 # Nrpe exporter.
     static_configs:
       - targets:
         - example.com:5666
@@ -88,7 +85,7 @@ groups:
   - alert: AptUpdatesNeeded
       # need to be explicit about looking back in time. Default is very short.
       # choose a time that is a little longer than the scrape_interval
-    expr: last_over_time(command_status{job="nrpe_check_apt"}[4h]) > 0
+    expr: command_status{job="nrpe_check_apt"} > 0
     for: 1m
     labels:
       severity: normal
@@ -118,7 +115,7 @@ openssl ciphers -s -v ALL | grep ADH   # remove -s on older versions of openssl
 ```
 
 The solution is to build a statically-linked `nrpe_exporter` binary on an
-older server - Ubuntu 16.04 works. See Dockerfile-ssl.
+older server - Ubuntu 16.04 works.
 
 ```
 go build -a -ldflags '-extldflags "-static -ldl"'
