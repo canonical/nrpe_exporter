@@ -32,10 +32,11 @@ Example config:
 global:
   scrape_interval: 10s
 scrape_configs:
-  - job_name: nrpe
+  - job_name: nrpe_check_load
     metrics_path: /export
     params:
       command: [check_load] # Run the check_load command.
+      ssl: [true]
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
@@ -47,24 +48,6 @@ scrape_configs:
       - targets: # Targets to run the specified command against.
         - '127.0.0.1:5666'
         - 'example.com:5666'
-
-  - job_name: nrpe_check_apt
-    params:
-      command: [check_apt]
-      ssl: [true]
-    scrape_interval: 2m
-    scrape_timeout: 60s # this command could take a long time to execute
-    metrics_path: /export
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: __param_target
-      - source_labels: [__param_target]
-        target_label: instance
-      - target_label: __address__
-        replacement: 127.0.0.1:9275 # Nrpe exporter.
-    static_configs:
-      - targets:
-        - example.com:5666
 
 ```
 
@@ -80,18 +63,16 @@ Sample Alert Rule:
 ```
 
 groups:
-- name: Apt Status
+- name: NRPE Host Load Status
   rules:
-  - alert: AptUpdatesNeeded
-      # need to be explicit about looking back in time. Default is very short.
-      # choose a time that is a little longer than the scrape_interval
-    expr: command_status{job="nrpe_check_apt"} > 0
-    for: 1m
+  - alert: HighLoad
+    expr: command_status{job="nrpe_check_load"} > 0
+    for: 5m
     labels:
       severity: normal
     annotations:
-      summary: "Packages need update  {{ $labels.instance }}"
-      description: "{{ $labels.instance }} for job {{ $labels.job }} has APT packages that need update."
+      summary: "Load is high {{ $labels.instance }}"
+      description: "{{ $labels.instance }} for job {{ $labels.job }} has sustained high load."
 
 ```
 

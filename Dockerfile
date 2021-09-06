@@ -1,7 +1,5 @@
 #
 # Prometheus nrpe_exporter docker file
-# forked and heavily modified from https://github.com/RobustPerception/nrpe_exporter
-# Ed Guy, August 2021
 #
 
 FROM ubuntu:16.04 as builder
@@ -22,7 +20,6 @@ RUN go build nrpe_exporter.go \
     && apt remove  -y  git libssl-dev musl-dev  libc-dev gcc pkg-config lxc-dev \
     && apt autoremove -y
 
-# thanks to hoijnet for this layer tip to make small images.
 FROM alpine:3.8
 # latest (.14) does not have libssl.so.1.0.0
 
@@ -33,6 +30,5 @@ RUN mkdir /lib64 && ln -s /lib/libc.musl-x86_64.so.1 /lib64/ld-linux-x86-64.so.2
 COPY --from=builder /app/nrpe_exporter /bin/nrpe_exporter
 EXPOSE      9275
 
-# remove ( or lower) log.level when convinced is working
-ENTRYPOINT  [ "/bin/nrpe_exporter", "--log.level=debug" ]
-#ENTRYPOINT  [ "/bin/nrpe_exporter" ]
+#ENTRYPOINT  [ "/bin/nrpe_exporter", "--log.level=debug" ]
+ENTRYPOINT  [ "/bin/nrpe_exporter" ]
