@@ -37,6 +37,10 @@ scrape_configs:
     params:
       command: [check_load] # Run the check_load command.
       ssl: [true]
+    static_configs:
+      - targets: # Targets to run the specified command against.
+        - '127.0.0.1:5666'
+        - 'example.com:5666'
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
@@ -44,10 +48,6 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: 127.0.0.1:9275 # Nrpe exporter.
-    static_configs:
-      - targets: # Targets to run the specified command against.
-        - '127.0.0.1:5666'
-        - 'example.com:5666'
 
 ```
 
