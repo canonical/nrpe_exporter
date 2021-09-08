@@ -32,10 +32,11 @@ Example config:
 global:
   scrape_interval: 10s
 scrape_configs:
-  - job_name: nrpe
+  - job_name: nrpe_check_load
     metrics_path: /export
     params:
       command: [check_load] # Run the check_load command.
+      ssl: [true] # if using ssl
     static_configs:
       - targets: # Targets to run the specified command against.
         - '127.0.0.1:5666'
@@ -49,6 +50,30 @@ scrape_configs:
         replacement: 127.0.0.1:9275 # Nrpe exporter.
 
 ```
+
+Result Codes in command_status:
+```
+    StatusOK       = 0
+    StatusWarning  = 1
+    StatusCritical = 2
+    StatusUnknown  = 3
+
+```
+Sample Alert Rule:
+```
+
+groups:
+- name: NRPE Host Load Status
+  rules:
+  - alert: HighLoad
+    expr: avg_over_time(command_status{job="nrpe_check_load"}[5m]) > 0
+    for: 5m
+    annotations:
+      summary: "Load is high {{ $labels.instance }}"
+      description: "{{ $labels.instance }} for job {{ $labels.job }} has sustained high load."
+
+```
+
 
 ## SSL support
 
