@@ -36,7 +36,7 @@ scrape_configs:
     metrics_path: /export
     params:
       command: [check_load] # Run the check_load command.
-      ssl: [true] # omit if for some reason not running ssl
+      ssl: [true] # if using ssl
     static_configs:
       - targets: # Targets to run the specified command against.
         - '127.0.0.1:5666'
@@ -68,8 +68,6 @@ groups:
   - alert: HighLoad
     expr: avg_over_time(command_status{job="nrpe_check_load"}[5m]) > 0
     for: 5m
-    labels:
-      severity: normal
     annotations:
       summary: "Load is high {{ $labels.instance }}"
       description: "{{ $labels.instance }} for job {{ $labels.job }} has sustained high load."
