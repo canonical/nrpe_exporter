@@ -16,7 +16,7 @@ RUN apt update \
     && tar -xvf go1.16.4.linux-amd64.tar.gz \
     && mv go /usr/local/
 COPY . .
-RUN go build nrpe_exporter.go \
+RUN go build -a -ldflags '-extldflags "-static -ldl"' nrpe_exporter.go \
     && apt remove  -y  git libssl-dev musl-dev  libc-dev gcc pkg-config lxc-dev \
     && apt autoremove -y
 
