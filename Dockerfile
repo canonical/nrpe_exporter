@@ -2,8 +2,9 @@
 # Prometheus nrpe_exporter docker file
 #
 
-FROM ubuntu:16.04 as builder
 #ubuntu:16.04 needed for ciphers.
+FROM ubuntu:16.04 as builder
+LABEL canonical=buildenv
 
 ENV GOROOT /usr/local/go
 ENV PATH $GOPATH/bin:$GOROOT/bin:$PATH
@@ -20,8 +21,9 @@ RUN go build -a -ldflags '-extldflags "-static -ldl"' nrpe_exporter.go \
     && apt remove  -y  git libssl-dev musl-dev  libc-dev gcc pkg-config lxc-dev \
     && apt autoremove -y
 
-FROM alpine:3.8
 # latest (.14) does not have libssl.so.1.0.0
+FROM alpine:3.8
+LABEL canonical=buildenv
 
 # Error loading shared library libssl.so.1.0.0: No such file or directory (needed by nrpe_exporter)
 RUN mkdir /lib64 && ln -s /lib/libc.musl-x86_64.so.1 /lib64/ld-linux-x86-64.so.2 \
