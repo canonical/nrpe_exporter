@@ -1,4 +1,4 @@
-# NRPE exporter [![Build Status](https://travis-ci.org/RobustPerception/nrpe_exporter.svg?branch=master)](https://travis-ci.org/RobustPerception/nrpe_exporter) [![CircleCI](https://circleci.com/gh/RobustPerception/nrpe_exporter.svg?style=shield)](https://circleci.com/gh/RobustPerception/nrpe_exporter)
+# NRPE exporter
 
 The NRPE exporter exposes metrics on commands sent to a running NRPE daemon.
 
@@ -100,5 +100,4 @@ older server - Ubuntu 16.04 works.
 go build -a -ldflags '-extldflags "-static -ldl"'
 ```
 
-[A future version of golang](https://github.com/golang/go/issues/26492) may
-provide a simpler way of doing this.
+A trivial `Makefile` is provided, which will perform this task in Docker.

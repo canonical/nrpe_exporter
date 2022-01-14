@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/aperum/nrpe"
+	nrpe "github.com/canonical/nrped/common"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
@@ -14,7 +14,7 @@ import (
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
 	"github.com/prometheus/common/version"
-	"github.com/spacemonkeygo/openssl"
+	"github.com/zmap/zcrypto/tls"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -34,7 +34,7 @@ type Collector struct {
 type CommandResult struct {
 	commandDuration float64
 	statusOk        float64
-	result          *nrpe.CommandResult
+	result          *nrpe.NrpePacket
 }
 
 // Describe implemented with dummy data to satisfy interface
@@ -44,42 +44,50 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 
 func collectCommandMetrics(cmd string, conn net.Conn, logger log.Logger) (CommandResult, error) {
 	// Parse and issue given command
-	command := nrpe.NewCommand(cmd)
+	command := nrpe.PrepareToSend(cmd, nrpe.QUERY_PACKET)
 	startTime := time.Now()
-	result, err := nrpe.Run(conn, command, false, 0)
+	err := nrpe.SendPacket(conn, command)
 	if err != nil {
 		return CommandResult{}, err
 	}
-	duration := time.Since(startTime).Seconds()
-	level.Debug(logger).Log("msg", "Command returned", "command", command.Name, "duration", duration, "result", result.StatusLine)
-	statusOk := 1.0
-	if result.StatusCode != 0 {
-		statusOk = 0
-		level.Debug(logger).Log("msg", "Status code did not equal 0", "status code", result.StatusCode)
+
+	result, err := nrpe.ReceivePacket(conn)
+	if err != nil {
+		level.Error(logger).Log("msg", "ERROR!")
+		return CommandResult{}, err
 	}
-	return CommandResult{duration, statusOk, result}, nil
+
+	duration := time.Since(startTime).Seconds()
+	level.Debug(logger).Log("msg", "Command returned", "command", cmd, "duration", duration, "result", result.ResultCode)
+	statusOk := 1.0
+	if result.ResultCode != 0 {
+		statusOk = 0
+		level.Debug(logger).Log("msg", "Status code did not equal 0", "status code", result.ResultCode)
+	}
+	return CommandResult{duration, statusOk, &result}, nil
 }
 
 // Collect dials nrpe-server and issues given command, recording metrics based on the result.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
-	var ctx *openssl.Ctx
 	var conn net.Conn
 	var err error
+
 	// Connect to NRPE server
 	if c.ssl {
-		ctx, err = openssl.NewCtx()
-		if err != nil {
-			level.Error(c.logger).Log("msg", "Error creating SSL context", "err", err)
-			return
-		}
-		err = ctx.SetCipherList("ALL:!MD5:@STRENGTH")
-		if err != nil {
-			level.Error(c.logger).Log("msg", "Error setting SSL cipher list", "err", err)
-			return
-		}
-		conn, err = openssl.Dial("tcp", c.target, ctx, openssl.InsecureSkipHostVerification)
+		conn, err = tls.Dial("tcp", c.target, &tls.Config{
+			InsecureSkipVerify: true,
+			CipherSuites: []uint16{
+				tls.TLS_DH_ANON_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDH_ANON_WITH_AES_256_CBC_SHA,
+			},
+			MinVersion:               tls.VersionTLS12,
+			PreferServerCipherSuites: true,
+			ClientDSAEnabled:         true,
+			ForceSuites:              true,
+		})
 	} else {
-		conn, err = net.Dial("tcp", c.target)
+		d := net.Dialer{}
+		conn, err = d.Dial("tcp", c.target)
 	}
 	if err != nil {
 		level.Error(c.logger).Log("msg", "Error dialing NRPE server", "err", err)
@@ -107,7 +115,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(
 		prometheus.NewDesc("command_status", "Indicates the status of the command", nil, nil),
 		prometheus.GaugeValue,
-		float64(cmdResult.result.StatusCode),
+		float64(cmdResult.result.ResultCode),
 	)
 }
 
