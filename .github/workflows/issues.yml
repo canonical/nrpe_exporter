@@ -9,14 +9,11 @@ jobs:
     steps:
       - name: Dump Github Context
         run: |
-          echo '${{ toJSON(github) }}'
-          echo "update=false" >> $GITHUB_ENV
-          
+          echo "update=false" >> $GITHUB_ENV          
           if [ ${{ github.event_name }} != "issues" ]; then
             echo "This action only operates on issues"
             exit 0
           fi
-          
           echo "update=true" >> $GITHUB_ENV
       - name: Determine action
         run: |
@@ -38,20 +35,19 @@ jobs:
           fi
       - name: Update
         if: ${{ env.update == 'true' }}
+        env:
+          ID: ${{ github.event.issue.html_url }}
+          TITLE: ${{github.event.issue.title }}
+          COMPONENT: nrpe_exporter
+          DESCRIPTION: Opened by ${{ github.event.issue.user.login }}.
         run: |
-          id="${{ github.event.issue.html_url }}"
-          title="${{ github.event.issue.title }}"
-          component="nrpe_exporter"
-          
-          description="Opened by ${{ github.event.issue.user.login }}."
-          
           data=$(jq -n \
-            --arg id "$id" \
+            --arg id "$ID" \
             --arg action "${{ env.action }}" \
-            --arg title "$title" \
-            --arg description "$description" \
-            --arg component "$component" \
+            --arg title "$TITLE" \
+            --arg description "$DESCRIPTION" \
+            --arg component "$COMPONENT" \
             --arg type "${{ env.type }}" \
             '{data: {id: $id, action: $action, title: $title, description: $description, component: $component, type: $type}}')
-          
+            
           curl -X POST -H 'Content-type: application/json' --data "${data}" "${{ secrets.JIRA_URL }}"
