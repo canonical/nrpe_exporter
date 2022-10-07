@@ -30,7 +30,6 @@ LABEL canonical=buildenv
 ARG ARCH
 ENV ARCH=$ARCH
 # Error loading shared library libssl.so.1.0.0: No such file or directory (needed by nrpe_exporter)
-RUN ls -l /lib/libc*
 RUN if [ "$ARCH" = "arm64" ]; then \
   mkdir /lib64 && ln -s /lib/libc.musl-aarch64.so.1 /lib64/ld-linux-aarch64.so.2; \
   else \
