@@ -14,7 +14,7 @@ import (
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
 	"github.com/prometheus/common/version"
-	"github.com/zmap/zcrypto/tls"
+	"github.com/spacemonkeygo/openssl"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -69,22 +69,23 @@ func collectCommandMetrics(cmd string, conn net.Conn, logger log.Logger) (Comman
 
 // Collect dials nrpe-server and issues given command, recording metrics based on the result.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
+	var ctx *openssl.Ctx
 	var conn net.Conn
 	var err error
 
 	// Connect to NRPE server
 	if c.ssl {
-		conn, err = tls.Dial("tcp", c.target, &tls.Config{
-			InsecureSkipVerify: true,
-			CipherSuites: []uint16{
-				tls.TLS_DH_ANON_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDH_ANON_WITH_AES_256_CBC_SHA,
-			},
-			MinVersion:               tls.VersionTLS12,
-			PreferServerCipherSuites: true,
-			ClientDSAEnabled:         true,
-			ForceSuites:              true,
-		})
+		ctx, err = openssl.NewCtx()
+		if err != nil {
+			level.Error(c.logger).Log("msg", "Error creating SSL context", "err", err)
+			return
+		}
+		err = ctx.SetCipherList("ALL:!MD5:@STRENGTH")
+		if err != nil {
+			level.Error(c.logger).Log("msg", "Error setting SSL cipher list", "err", err)
+			return
+		}
+		conn, err = openssl.Dial("tcp", c.target, ctx, openssl.InsecureSkipHostVerification)
 	} else {
 		d := net.Dialer{}
 		conn, err = d.Dial("tcp", c.target)
