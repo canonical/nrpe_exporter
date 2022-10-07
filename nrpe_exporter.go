@@ -48,13 +48,21 @@ func collectCommandMetrics(cmd string, conn net.Conn, logger log.Logger) (Comman
 	startTime := time.Now()
 	err := nrpe.SendPacket(conn, command)
 	if err != nil {
-		return CommandResult{}, err
+		return CommandResult{
+			commandDuration: time.Since(startTime).Seconds(),
+			statusOk:        0,
+			result:          nil,
+		}, err
 	}
 
 	result, err := nrpe.ReceivePacket(conn)
 	if err != nil {
-		level.Error(logger).Log("msg", "ERROR!")
-		return CommandResult{}, err
+		level.Error(logger).Log("msg", "ERROR!", err)
+		return CommandResult{
+			commandDuration: time.Since(startTime).Seconds(),
+			statusOk:        0,
+			result:          nil,
+		}, err
 	}
 
 	duration := time.Since(startTime).Seconds()
