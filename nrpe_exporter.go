@@ -15,7 +15,7 @@ import (
 	"github.com/prometheus/common/promlog/flag"
 	"github.com/prometheus/common/version"
 	"github.com/spacemonkeygo/openssl"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -81,6 +81,8 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	var conn net.Conn
 	var err error
 
+	defer conn.Close()
+
 	// Connect to NRPE server
 	if c.ssl {
 		ctx, err = openssl.NewCtx()
@@ -98,11 +100,11 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		d := net.Dialer{}
 		conn, err = d.Dial("tcp", c.target)
 	}
+
 	if err != nil {
 		level.Error(c.logger).Log("msg", "Error dialing NRPE server", "err", err)
 		return
 	}
-	defer conn.Close()
 
 	cmdResult, err := collectCommandMetrics(c.command, conn, c.logger)
 	if err != nil {
@@ -126,6 +128,13 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		prometheus.GaugeValue,
 		float64(cmdResult.result.ResultCode),
 	)
+
+	// Make sure the connection is closed, since it will re-dial on the next check
+	// Closing a connection more than once is fine. The defer above will simply noop, as it's already closed
+	err = conn.Close()
+	if err != nil {
+		level.Error(c.logger).Log("msg", "Could not close connection to NRPE server", "target", c.target, "err", err)
+	}
 }
 
 // NewCollector returns new collector with logger and given command
@@ -165,6 +174,7 @@ func main() {
 	kingpin.Version(version.Print("nrpe_exporter"))
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
+
 	logger := promlog.New(&logConfig)
 	level.Info(logger).Log("msg", "Starting nrpe_exporter", "version", version.Info())
 	level.Info(logger).Log("msg", "Build context", "build_context", version.BuildContext())
