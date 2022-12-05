@@ -81,8 +81,6 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	var conn net.Conn
 	var err error
 
-	defer conn.Close()
-
 	// Connect to NRPE server
 	if c.ssl {
 		ctx, err = openssl.NewCtx()
@@ -100,6 +98,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		d := net.Dialer{}
 		conn, err = d.Dial("tcp", c.target)
 	}
+	defer conn.Close()
 
 	if err != nil {
 		level.Error(c.logger).Log("msg", "Error dialing NRPE server", "err", err)
