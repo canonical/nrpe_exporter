@@ -67,8 +67,10 @@ func collectCommandMetrics(cmd string, conn net.Conn, logger log.Logger) (Comman
 	}
 
 	duration := time.Since(startTime).Seconds()
-	level.Info(logger).Log("msg", "Command returned", "command", cmd, "duration",
-		duration, "return_code", result.ResultCode, "command_output", fmt.Sprintf("%s", result.CommandBuffer))
+	ipaddr, _, err := net.SplitHostPort(conn.RemoteAddr().String())
+	level.Info(logger).Log("msg", "Command returned", "command", cmd,
+		"address", ipaddr, "duration", duration, "return_code", result.ResultCode,
+		"command_output", fmt.Sprintf("%s", result.CommandBuffer))
 	statusOk := 1.0
 	if result.ResultCode != 0 {
 		statusOk = 0
