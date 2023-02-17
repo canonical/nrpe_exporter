@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"net/http"
@@ -68,9 +69,10 @@ func collectCommandMetrics(cmd string, conn net.Conn, logger log.Logger) (Comman
 
 	duration := time.Since(startTime).Seconds()
 	ipaddr, _, err := net.SplitHostPort(conn.RemoteAddr().String())
+	output := result.CommandBuffer[:]
 	level.Info(logger).Log("msg", "Command returned", "command", cmd,
 		"address", ipaddr, "duration", duration, "return_code", result.ResultCode,
-		"command_output", fmt.Sprintf("%s", result.CommandBuffer[:]))
+		"command_output", fmt.Sprintf("%s", bytes.Trim(output, "\x00")))
 	statusOk := 1.0
 	if result.ResultCode != 0 {
 		statusOk = 0
