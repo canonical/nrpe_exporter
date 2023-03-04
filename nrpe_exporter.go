@@ -99,16 +99,19 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			return
 		}
 		conn, err = openssl.Dial("tcp", c.target, ctx, openssl.InsecureSkipHostVerification)
+		if conn == (*openssl.Conn)(nil) || err != nil {
+			level.Error(c.logger).Log("msg", "Error dialing NRPE server", "err", err)
+			return
+		}
 	} else {
 		d := net.Dialer{}
 		conn, err = d.Dial("tcp", c.target)
+		if err != nil {
+			level.Error(c.logger).Log("msg", "Error dialing NRPE server", "err", err)
+			return
+		}
 	}
 	defer conn.Close()
-
-	if err != nil {
-		level.Error(c.logger).Log("msg", "Error dialing NRPE server", "err", err)
-		return
-	}
 
 	cmdResult, err := collectCommandMetrics(c.command, conn, c.logger)
 	if err != nil {
