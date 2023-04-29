@@ -3,9 +3,11 @@ package profiles
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
+	"strconv"
 	"strings"
 
+	nrpe "github.com/peekjef72/nrped/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/yaml.v2"
 )
@@ -13,7 +15,7 @@ import (
 // Load attempts to parse the given config file and return a Config object.
 func Load(profilesFile string) (*Profiles, error) {
 	//	log.Infof("Loading profiles from %s", profilesFile)
-	buf, err := ioutil.ReadFile(profilesFile)
+	buf, err := os.ReadFile(profilesFile)
 	if err != nil {
 		return nil, err
 	}
@@ -86,16 +88,19 @@ func (p *Profiles) Dump() (string, error) {
 //
 // **********************************************
 type ProfileConfig struct {
-	Name     string           `yaml:"profile"`
-	Commands []*CommandConfig `yaml:"commands"`
+	Name             string             `yaml:"profile"`
+	PerfData         ConvertibleBoolean `yaml:"performance"`
+	PacketVersionStr string             `yaml:"packet_version,omitempty"`
+	Commands         []*CommandConfig   `yaml:"commands"`
 
+	PacketVersion int
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline" json:"-"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface for ProfileConfig.
 func (c *ProfileConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
-
+	c.PerfData = true
 	type plain ProfileConfig
 	if err := unmarshal((*plain)(c)); err != nil {
 		return err
@@ -103,6 +108,25 @@ func (c *ProfileConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	if len(c.Commands) == 0 {
 		return fmt.Errorf("no commands defined for profile %q", c.Name)
+	}
+
+	// force all commands to not collect perfdata if profile is set to false.
+	if !c.PerfData {
+		for _, cmd := range c.Commands {
+			cmd.PerfData = false
+		}
+	}
+
+	if c.PacketVersionStr == "" {
+		c.PacketVersion = nrpe.NRPE_PACKET_VERSION_4
+	} else {
+		if val, err := strconv.Atoi(c.PacketVersionStr); err == nil {
+			if val >= nrpe.NRPE_PACKET_VERSION_1 && val <= nrpe.NRPE_PACKET_VERSION_4 {
+				c.PacketVersion = val
+			} else {
+				c.PacketVersion = nrpe.NRPE_PACKET_VERSION_4
+			}
+		}
 	}
 
 	return checkOverflow(c.XXX, "profiles")
@@ -114,15 +138,17 @@ func (c *ProfileConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 //
 // **********************************************
 type CommandConfig struct {
-	Command    string `yaml:"command"`
-	Params     string `yaml:"params,omitempty"`
-	TypeString string `yaml:"type,omitempty"` // the Prometheus metric type
-	Help       string `yaml:"help,omitempty"` //the Prometheus metric help text
-	MetricName string `yaml:"metric_name,omitempty"`
-	LabelName  string `yaml:"label_name,omitempty"`
+	Command      string             `yaml:"command"`
+	Params       string             `yaml:"params,omitempty"`
+	TypeString   string             `yaml:"type,omitempty"` // the Prometheus metric type
+	Help         string             `yaml:"help,omitempty"` //the Prometheus metric help text
+	MetricPrefix string             `yaml:"metric_prefix,omitempty"`
+	MetricName   string             `yaml:"metric_name,omitempty"`
+	LabelName    string             `yaml:"label_name,omitempty"`
+	PerfData     ConvertibleBoolean `yaml:"performance"`
 
 	valueType prometheus.ValueType // TypeString converted to prometheus.ValueType
-
+	Cmd       *nrpe.NrpeCommand
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline" json:"-"`
 }
@@ -137,6 +163,7 @@ func (c *CommandConfig) ValueType() prometheus.ValueType {
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface for MetricConfig.
 func (c *CommandConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	c.PerfData = true
 	type plain CommandConfig
 	if err := unmarshal((*plain)(c)); err != nil {
 		return err
@@ -158,8 +185,34 @@ func (c *CommandConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	} else {
 		c.valueType = prometheus.GaugeValue
 	}
+	// c.cmd
+	tmp := nrpe.NewNrpeCommand(c.Command, c.Params)
+	c.Cmd = &tmp
 
 	return checkOverflow(c.XXX, "profiles")
+}
+
+// ConvertibleBoolean special type to retrive 1 yes true to boolean true
+type ConvertibleBoolean bool
+
+func (bit *ConvertibleBoolean) UnmarshalJSON(data []byte) error {
+	asString := string(data)
+	if asString == "1" || asString == "true" {
+		*bit = true
+	} else if asString == "0" || asString == "false" {
+		*bit = false
+	} else {
+		return fmt.Errorf("boolean unmarshal error: invalid input %s", asString)
+	}
+	return nil
+}
+
+func ToBoolean(val string) ConvertibleBoolean {
+	res := false
+	if val == "1" || val == "true" || val == "yes" {
+		res = true
+	}
+	return (ConvertibleBoolean)(res)
 }
 
 func checkOverflow(m map[string]interface{}, ctx string) error {
