@@ -145,7 +145,8 @@ type CommandConfig struct {
 	MetricPrefix string             `yaml:"metric_prefix,omitempty"`
 	MetricName   string             `yaml:"metric_name,omitempty"`
 	LabelName    string             `yaml:"label_name,omitempty"`
-	PerfData     ConvertibleBoolean `yaml:"performance"`
+	PerfData     ConvertibleBoolean `yaml:"performance,omitempty"`
+	ResultMsg    ConvertibleBoolean `yaml:"result_message,omitempty"`
 
 	valueType prometheus.ValueType // TypeString converted to prometheus.ValueType
 	Cmd       *nrpe.NrpeCommand

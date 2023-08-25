@@ -236,15 +236,25 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 
 		// metric for command result
 		name = "command_status"
+
 		//*** if metric_name defined by user it has to be a prefix for metric
 		if c.metric_prefix != "" {
 			name = strings.Join([]string{c.metric_prefix, name}, "_")
 		}
+
+		label_keys := make([]string, 1)
+		label_values := make([]string, 1)
+		label_keys[0] = "command"
+		label_values[0] = cmd.Command
+		if cmd.ResultMsg {
+			label_keys = append(label_keys, "result_msg")
+			label_values = append(label_values, strings.ReplaceAll(cmdResult.result.GetCommandBuffer(), `"`, "'"))
+		}
 		ch <- prometheus.MustNewConstMetric(
-			prometheus.NewDesc(name, "Indicates the status of the command (nrpe status: 0: OK | 1: WARNING | 2: CRITICAL | 3: UNKNOWN)", labels, nil),
+			prometheus.NewDesc("nrpe_command_status", "Indicates the status of the command (nrpe status: 0: OK | 1: WARNING | 2: CRITICAL | 3: UNKNOWN)", label_keys, nil),
 			prometheus.GaugeValue,
 			float64(cmdResult.result.ResultCode()),
-			cmd.Command,
+			label_values...,
 		)
 
 		// metric for command duration
