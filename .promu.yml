@@ -6,7 +6,7 @@ build:
     binaries:
         - name: nrpe_exporter
           prfix: ./nrpe_exporter
-    flags: -tags go-openssl-0.0.0-20181017203307
+    flags: -tags go-openssl-0.0.0-20181017203307_libssl.so.1.1
     static: false
     ldflags: |
       -X github.com/prometheus/common/version.Version={{.Version}}

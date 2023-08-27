@@ -521,8 +521,11 @@ func handler(w http.ResponseWriter, r *http.Request, profs *profiles.Profiles, l
 		metricName := params.Get("metricname")
 		labelName := params.Get("labelname")
 		performance := params.Get("performance")
+		cmd_result_str := params.Get("result_message")
+
 		cmd := NewCommand(cmd_name, cmd_params_str, metricPrefix, metricName, labelName)
 		cmd.PerfData = profiles.ToBoolean(performance)
+		cmd.ResultMsg = profiles.ToBoolean(cmd_result_str)
 
 		cmds = make([]*profiles.CommandConfig, 1)
 		cmds[0] = cmd
