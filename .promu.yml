@@ -1,12 +1,11 @@
 go:
-    cgo: false
+    cgo: true
 repository:
     path: github.com/canonical/nrpe_exporter
 build:
     binaries:
         - name: nrpe_exporter
-          prfix: ./nrpe_exporter
-    flags: -tags go-openssl-0.0.0-20181017203307_libssl.so.1.1
+    flags: -a -tags netgo,usergo,openssl_static
     static: false
     ldflags: |
       -X github.com/prometheus/common/version.Version={{.Version}}
@@ -15,7 +14,6 @@ build:
       -X github.com/prometheus/common/version.BuildDate={{date "20060102-15:04:05"}}
       -X github.com/prometheus/common/version.BuildUser={{user}}@{{host}}
 tarball:
-    prefix: .
     files:
         - LICENSE
         - README.md
