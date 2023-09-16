@@ -22,18 +22,39 @@ import (
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
 	"github.com/prometheus/common/version"
+	"github.com/prometheus/exporter-toolkit/web"
+	"github.com/prometheus/exporter-toolkit/web/kingpinflag"
 	"github.com/spacemonkeygo/openssl"
 )
 
-var (
-	listenAddress       = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9275").String()
-	metricsPath         = kingpin.Flag("web.telemetry-path", "Path under which to expose collector's internal metrics.").Default("/metrics").String()
-	exportPath          = kingpin.Flag("web.export-path", "Path under which to expose targets' metrics.").Default("/export").String()
-	profilesPath        = kingpin.Flag("web.profiles-path", "Path to custom command checks to run.").Default("/profiles").String()
-	profilesFilePath    = kingpin.Flag("extend.profiles-file", "Path to custom command checks to run.").Default("").String()
-	nrpe_packet_version = kingpin.Flag("nrpe_packet_version", "nrpe packet version to use v2,v3 or v4(default)").Short('p').Default("4").Int()
-	metric_prefix       = kingpin.Flag("metric_prefix", "metric prefix to prepend to each metric").Short('m').Default("").String()
+// **************
+const (
+	// Constant values
+	metricsPublishingPort = ":9275"
 )
+
+var (
+	//	listenAddress         = kingpin.Flag("web.listen-address", "The address to listen on for HTTP requests.").Default(":9275").String()
+	toolkitFlags = kingpinflag.AddFlags(kingpin.CommandLine, metricsPublishingPort)
+
+	metricsPath           = kingpin.Flag("web.telemetry-path", "Path under which to expose collector's internal metrics.").Default("/metrics").String()
+	exportPath            = kingpin.Flag("web.export-path", "Path under which to expose targets' metrics.").Default("/export").String()
+	profilesPath          = kingpin.Flag("web.profiles-path", "Path under which to expose profiles configuration.").Default("/profiles").String()
+	profilesFilePath      = kingpin.Flag("extend.profiles-file", "Path to custom command checks to run.").Default("").String()
+	nrpe_packet_version   = kingpin.Flag("nrpe_packet_version", "nrpe packet version to use v2,v3 or v4(default)").Short('p').Default("4").Int()
+	default_metric_prefix = kingpin.Flag("metric_prefix", "metric prefix to prepend to each metric").Short('m').Default("nrpe").String()
+)
+
+type Exporter struct {
+	ExporterName     string
+	MetricPath       string
+	ExporterPath     string
+	ProfilesPath     string
+	ProfilesFilePath string
+
+	Profiles *profiles.Profiles
+	logger   log.Logger
+}
 
 // Collector type containing issued command and a logger
 type Collector struct {
@@ -247,11 +268,15 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		label_keys[0] = "command"
 		label_values[0] = cmd.Command
 		if cmd.ResultMsg {
-			label_keys = append(label_keys, "result_msg")
+			loc_label_name := "command_result_msg"
+			if c.metric_prefix != "" {
+				loc_label_name = strings.Join([]string{c.metric_prefix, loc_label_name}, "_")
+			}
+			label_keys = append(label_keys, loc_label_name)
 			label_values = append(label_values, strings.ReplaceAll(cmdResult.result.GetCommandBuffer(), `"`, "'"))
 		}
 		ch <- prometheus.MustNewConstMetric(
-			prometheus.NewDesc("nrpe_command_status", "Indicates the status of the command (nrpe status: 0: OK | 1: WARNING | 2: CRITICAL | 3: UNKNOWN)", label_keys, nil),
+			prometheus.NewDesc(name, "Indicates the status of the command (nrpe status: 0: OK | 1: WARNING | 2: CRITICAL | 3: UNKNOWN)", label_keys, nil),
 			prometheus.GaugeValue,
 			float64(cmdResult.result.ResultCode()),
 			label_values...,
@@ -306,9 +331,9 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 						// perf name can generate a metric name or a label_value depending on the context
 						perf_name := param[0:pos]
 						//*** if metric_name defined by user it has to be a prefix for metric
-						// if cmd.MetricPrefix != "" {
-						// 	perf_name = strings.Join([]string{cmd.MetricPrefix, perf_name}, "_")
-						// }
+						if cmd.MetricPrefix != "" {
+							perf_name = strings.Join([]string{cmd.MetricPrefix, perf_name}, "_")
+						}
 						perf_name = validateLabelValue(perf_name)
 
 						level.Debug(c.logger).Log("msg", "found perfData", "label_value", perf_name)
@@ -376,21 +401,27 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 							value := getValue(values[0], c.logger)
 							metric_name := perf_name
 							if cmd.MetricPrefix != "" {
-								metric_name = strings.Join([]string{cmd.MetricPrefix, perf_name}, "_")
-							} else if c.metric_prefix != "" {
-								metric_name = strings.Join([]string{c.metric_prefix, perf_name}, "_")
+								// metric_name = validateMetricName(strings.Join([]string{cmd.MetricPrefix, perf_name}, "_"))
+								metric_name = validateMetricName(perf_name)
+								ch <- prometheus.MustNewConstMetric(
+									prometheus.NewDesc(metric_name, help, nil, nil),
+									metric_type,
+									value,
+								)
 							} else {
-								metric_name = strings.Join([]string{cmd.Command, perf_name}, "_")
+								metric_name = validateMetricName(strings.ToLower(cmd.Command))
+								labels := make([]string, 1)
+								labels[0] = "label1"
+								ch <- prometheus.MustNewConstMetric(
+									prometheus.NewDesc(metric_name, help, labels, nil),
+									metric_type,
+									value,
+									perf_name,
+								)
 							}
-							metric_name = validateMetricName(metric_name)
 
 							level.Debug(c.logger).Log("msg", "will add metric", "metric_name", metric_name, "value", value)
 							// Create metrics based on perfdata name and value
-							ch <- prometheus.MustNewConstMetric(
-								prometheus.NewDesc(metric_name, help, nil, nil),
-								metric_type,
-								value,
-							)
 						} else {
 							// user has specified a metric name: use it as is
 							// metric will by default have a label to distinguish each different perf element.
@@ -484,9 +515,12 @@ func NewCommand(command string, cmd_params string, metricPrefix, metricName stri
 }
 
 // ***********************************************************************************************
-func handler(w http.ResponseWriter, r *http.Request, profs *profiles.Profiles, logger log.Logger) {
+func handler(w http.ResponseWriter, r *http.Request, exporter Exporter) {
 	//	var cmd_params []string
-	var cmds []*profiles.CommandConfig
+	var (
+		cmds          []*profiles.CommandConfig
+		metric_prefix string
+	)
 	packet_version := *nrpe_packet_version
 
 	params := r.URL.Query()
@@ -498,17 +532,18 @@ func handler(w http.ResponseWriter, r *http.Request, profs *profiles.Profiles, l
 
 	profile_name := params.Get("profile")
 	if profile_name != "" {
-		if profs == nil {
+		if exporter.Profiles == nil {
 			http.Error(w, "no profile defined!", 400)
 			return
 		}
-		p, err := profs.FindProfileName(profile_name)
+		p, err := exporter.Profiles.FindProfileName(profile_name)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("%v", err), 400)
 			return
 		}
 		cmds = p.Commands
 		packet_version = p.PacketVersion
+		metric_prefix = p.MetricPrefix
 	} else {
 		cmd_name := params.Get("command")
 		if cmd_name == "" {
@@ -516,6 +551,9 @@ func handler(w http.ResponseWriter, r *http.Request, profs *profiles.Profiles, l
 			return
 		}
 		cmd_params_str := params.Get("params")
+
+		// profile metric_prefix
+		metric_prefix = *default_metric_prefix
 
 		metricPrefix := params.Get("metricprefix")
 		metricName := params.Get("metricname")
@@ -534,36 +572,44 @@ func handler(w http.ResponseWriter, r *http.Request, profs *profiles.Profiles, l
 	ssl := sslParam == "true"
 
 	registry := prometheus.NewRegistry()
-	collector := NewCollector(target, ssl, cmds, *metric_prefix, packet_version, logger)
+	if metric_prefix == "" {
+		metric_prefix = *default_metric_prefix
+	}
+	collector := NewCollector(target, ssl, cmds, metric_prefix, packet_version, exporter.logger)
 	registry.MustRegister(collector)
 	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 	h.ServeHTTP(w, r)
 }
 
-// ***********************************************************************************************
-func handlerProfile(w http.ResponseWriter, r *http.Request, profs *profiles.Profiles, logger log.Logger) {
-	dump, err := profs.Dump()
-	if err != nil {
-		level.Error(logger).Log("Errmsg", "Error dumping profiles", "err", err)
-	}
-	var landingPage = []byte(`<html>
-	    <head>
-	    <title>NRPE Exporter</title>
-	    </head>
-	    <body>
-	    <h1>NRPE Exporter Profiles</h1>
-		<pre>` + dump + `
-		</pre>
-	    </body>
-	    </html>
-	`)
-	//			<p><a href="` + *metricPath + `">Metrics</a></p>
-	//			<p><a href="` + *exportPath + `"?command=check_load&target=127.0.0.1:5666">check_load against localhost:5666</a></p>
-	//			<p><a href="` + *profilesPath + `">Profiles</a></p>
-	level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
+type route struct {
+	path    string
+	handler http.HandlerFunc
+}
 
-	w.Header().Set("Content-Type", "text/html; charset=UTF-8") // nolint: errcheck
-	w.Write(landingPage)                                       // nolint: errcheck
+func newRoute(path string, handler http.HandlerFunc) route {
+	return route{path, handler}
+}
+func BuildHandler(exporter Exporter) http.Handler {
+	var routes = []route{
+		newRoute("/healthz", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "OK", http.StatusOK) }),
+		newRoute("/", HomeHandlerFunc(exporter)),
+		newRoute("/status", StatusHandlerFunc(exporter)),
+		newRoute(*profilesPath, ProfilesHandlerFunc(exporter)),
+		newRoute(*exportPath, func(w http.ResponseWriter, r *http.Request) { handler(w, r, exporter) }),
+		// Expose exporter metrics separately, for debugging purposes.
+		newRoute(*metricsPath, func(w http.ResponseWriter, r *http.Request) { promhttp.Handler().ServeHTTP(w, r) }),
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		for _, route := range routes {
+			if req.URL.Path == route.path {
+				route.handler(w, req)
+				return
+			}
+		}
+		err := fmt.Errorf("not found")
+		HandleError(http.StatusNotFound, err, exporter, w, req)
+	})
 }
 
 // ***********************************************************************************************
@@ -593,38 +639,22 @@ func main() {
 			level.Debug(logger).Log("msg", fmt.Sprintf("%d profile(s) found", len(profs.Profiles)))
 		}
 	}
-	var landingPage = []byte(`<html>
-	<head>
-	<title>NRPE Exporter</title>
-	</head>
-	<body>
-            <h1>NRPE Exporter</h1>
-			<p><a href="` + *metricsPath + `">Metrics</a></p>
-			<p><a href="` + *exportPath + `?command=check_load&target=127.0.0.1:5666&metric_name=nrpe_load">check_load against localhost:5666</a></p>
-			<p><a href="` + *profilesPath + `">Profiles</a></p>
-            </body>
-			</html>
-			`)
-	level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		w.Write(landingPage)
-	})
+	exporter := Exporter{
+		ExporterName:     "NRPE Exporter",
+		MetricPath:       *metricsPath,
+		ExporterPath:     *exportPath,
+		ProfilesPath:     *profilesPath,
+		ProfilesFilePath: *profilesFilePath,
+		Profiles:         profs,
+		logger:           logger,
+	}
 
-	http.HandleFunc(*exportPath, func(w http.ResponseWriter, r *http.Request) {
-		handler(w, r, profs, logger)
-	})
-
-	http.HandleFunc(*profilesPath, func(w http.ResponseWriter, r *http.Request) {
-		handlerProfile(w, r, profs, logger)
-	})
-
-	http.Handle(*metricsPath, promhttp.Handler())
-
-	if err := http.ListenAndServe(*listenAddress, nil); err != nil {
-		level.Error(logger).Log("msg", "Error starting HTTP server")
+	server := &http.Server{
+		Handler: BuildHandler(exporter),
+	}
+	if err := web.ListenAndServe(server, toolkitFlags, logger); err != nil {
+		level.Error(logger).Log("err", err)
 		os.Exit(1)
 	}
-	level.Info(logger).Log("msg", "Listening on address", "address", *listenAddress)
 }

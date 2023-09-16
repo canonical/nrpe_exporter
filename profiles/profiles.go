@@ -89,6 +89,7 @@ func (p *Profiles) Dump() (string, error) {
 // **********************************************
 type ProfileConfig struct {
 	Name             string             `yaml:"profile"`
+	MetricPrefix     string             `yaml:"metric_prefix"`
 	PerfData         ConvertibleBoolean `yaml:"performance"`
 	PacketVersionStr string             `yaml:"packet_version,omitempty"`
 	Commands         []*CommandConfig   `yaml:"commands"`
