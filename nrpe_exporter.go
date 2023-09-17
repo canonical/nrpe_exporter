@@ -621,6 +621,8 @@ func main() {
 	flag.AddFlags(kingpin.CommandLine, &logConfig)
 	kingpin.Version(version.Print("nrpe_exporter")).VersionFlag.Short('V')
 	kingpin.HelpFlag.Short('h')
+	fl := kingpin.CommandLine.GetFlag("web.telemetry-path")
+	fl.Hidden()
 	kingpin.Parse()
 
 	logger := promlog.New(&logConfig)
