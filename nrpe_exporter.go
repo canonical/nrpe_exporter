@@ -203,7 +203,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 
 		if err != nil {
 			ch <- prometheus.MustNewConstMetric(
-				prometheus.NewDesc("nrpe_up", "Indicates whether or not nrpe agent is ip", nil, nil),
+				prometheus.NewDesc("nrpe_up", "Indicates whether or not nrpe agent is up", nil, nil),
 				prometheus.GaugeValue,
 				0,
 			)
@@ -222,7 +222,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		if conn == (net.Conn)(nil) || err != nil {
 			level.Error(c.logger).Log("msg", "Error dialing NRPE server", "err", err)
 			ch <- prometheus.MustNewConstMetric(
-				prometheus.NewDesc("nrpe_up", "Indicates whether or not nrpe agent is ip", nil, nil),
+				prometheus.NewDesc("nrpe_up", "Indicates whether or not nrpe agent is up", nil, nil),
 				prometheus.GaugeValue,
 				0,
 			)
@@ -621,8 +621,6 @@ func main() {
 	flag.AddFlags(kingpin.CommandLine, &logConfig)
 	kingpin.Version(version.Print("nrpe_exporter")).VersionFlag.Short('V')
 	kingpin.HelpFlag.Short('h')
-	fl := kingpin.CommandLine.GetFlag("web.telemetry-path")
-	fl.Hidden()
 	kingpin.Parse()
 
 	logger := promlog.New(&logConfig)
