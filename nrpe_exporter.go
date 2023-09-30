@@ -336,7 +336,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 						}
 						perf_name = validateLabelValue(perf_name)
 
-						level.Debug(c.logger).Log("msg", "found perfData", "label_value", perf_name)
+						level.Debug(c.logger).Log("msg", "found perfData", "metric_name", perf_name)
 						raw_values := param[pos+1:]
 						level.Debug(c.logger).Log("msg", "found perfData raw_value", "raw_value", raw_values)
 
@@ -366,6 +366,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 								label_pairs := c.one_label_re.FindStringSubmatch(label)
 								//							level.Debug(c.logger).Log("msg", "label_pairs() found ?", "res len", len(label_pairs))
 								if len(label_pairs) < 3 {
+									level.Info(c.logger).Log("msg", "invalid label_pair format regex failed: must be key=\"value\"")
 									break
 								}
 								label_names = append(label_names, label_pairs[1])
