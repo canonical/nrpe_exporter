@@ -14,5 +14,5 @@
 <!-- What steps need to be taken to test this PR? -->
 
 
-## Release Notes
-<!-- A digestable summary of the change in this PR -->
+## Upgrade Notes
+<!-- To upgrade from an older revision of charmed prometheus, ... -->
