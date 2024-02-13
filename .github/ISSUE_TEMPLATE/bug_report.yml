@@ -6,14 +6,14 @@ body:
     attributes:
       value: >
         Thanks for taking the time to fill out this bug report! Before submitting your issue, please make
-        sure you are using the latest version of the charm. If not, please switch to this image prior to 
+        sure you are using the latest version of the charm. If not, please try upgrading to the latest edge release prior to 
         posting your report to make sure it's not already solved.
   - type: textarea
     id: bug-description
     attributes:
       label: Bug Description
       description: >
-        If applicable, add screenshots to help explain your problem. If applicable, add screenshots to 
+         If applicable, add screenshots to 
         help explain the problem you are facing.      
     validations:
       required: true
@@ -23,7 +23,7 @@ body:
       label: To Reproduce
       description: >
         Please provide the output of `juju export-bundle` and step-by-step instructions for how to reproduce the behavior.
-        A deployment diagram could be handy too.
+        A deployment diagram could be handy too. See https://discourse.charmhub.io/t/9269 for examples.
       placeholder: |
         1. `juju deploy ...`
         2. `juju relate ...`
@@ -56,4 +56,3 @@ body:
     id: additional-context
     attributes:
       label: Additional context
-
