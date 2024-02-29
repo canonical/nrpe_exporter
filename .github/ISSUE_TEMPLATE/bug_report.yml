@@ -13,7 +13,7 @@ body:
     attributes:
       label: Bug Description
       description: >
-         If applicable, add screenshots to 
+        If applicable, add screenshots to 
         help explain the problem you are facing.      
     validations:
       required: true
