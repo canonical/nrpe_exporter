@@ -273,7 +273,8 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 				loc_label_name = strings.Join([]string{c.metric_prefix, loc_label_name}, "_")
 			}
 			label_keys = append(label_keys, loc_label_name)
-			label_values = append(label_values, strings.ReplaceAll(cmdResult.result.GetCommandBuffer(), `"`, "'"))
+			// replace " by ' and , by ; => required for labels parsing name=value delimited by "" and ,
+			label_values = append(label_values, strings.ReplaceAll(strings.ReplaceAll(cmdResult.result.GetCommandBuffer(), `,`, `;`), `"`, "'"))
 		}
 		ch <- prometheus.MustNewConstMetric(
 			prometheus.NewDesc(name, "Indicates the status of the command (nrpe status: 0: OK | 1: WARNING | 2: CRITICAL | 3: UNKNOWN)", label_keys, nil),
