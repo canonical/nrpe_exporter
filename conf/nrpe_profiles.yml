@@ -1,0 +1,32 @@
+profiles:
+  - profile: default_aix
+    # packet_version: 4
+    commands:
+      - command: collect_metrics
+        params: -m all
+        metric_prefix: aix_host
+
+      - command: check_load
+        params: -w3,3,3 -c5,5,5
+        metric_name: aix_load
+        label_name: type
+
+      - command: check_swap
+        params: -w60% -c30%
+        metric_name: aix_swap_free_megabytes,,,,aix_swap_total_megabytes
+        label_name: NONE
+
+      - command: check_mem
+        params: -f -w 2 -c 1
+        metric_name: aix_memory_kilobytes
+        label_name: type
+
+      - command: check_disk
+        params: -X binfmt_misc -X devpts -X devtmpfs -X noner -X proc -X procfs -X rpc_pipefs -X sysfs -X tmpfs -X overlay -X debugfs -X tracefs -X autofs -X cgroup -X iso9660 --errors-only -t10 -w5 -c3 --all -i/.snapshot/ -i podman -i/run -u kB
+        metric_name: aix_filesystem_used_kilobytes,,,,aix_filesystem_total_kilobytes
+        label_name: filesystem
+
+      - command: check_mcpu
+        params: "-i 1 -r 1 -w 2 -c 1"
+        metric_name: aix_cpu_percent
+        label_name: type
