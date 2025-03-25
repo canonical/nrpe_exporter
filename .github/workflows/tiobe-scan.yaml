@@ -1,0 +1,12 @@
+name: Tiobe TiCS Analysis
+
+on:
+    workflow_dispatch:
+    schedule:
+    - cron: "0 0 * * 1"  # Runs at midnight UTC every Monday
+
+jobs:
+    tics:
+        name: TiCs
+        uses: canonical/observability/.github/workflows/charm-tiobe-scan.yaml@main
+        secrets: inherit
